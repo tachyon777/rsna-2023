@@ -6,7 +6,8 @@ kaggleの[RSNA2023コンペ](https://www.kaggle.com/competitions/rsna-2023-abdom
 必ずしも統一する必要はありません。
 - python 3.9.12
 - pytorch 1.11.0
-- その他機械学習に用いられる一般的なライブラリを必要に応じてinstallしてください。
+- その他機械学習に用いられる一般的なライブラリを必要に応じてinstall
+- 特別必要に思われるモジュールはrequirements.txtに記載
 
 # Getting Started
 dataディレクトリ直下に`rsna-2023-abdominal-trauma-detection`というディレクトリを配置し、その中にデータセットを配置してください。
