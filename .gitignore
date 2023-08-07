@@ -6,7 +6,6 @@ data/*
 models/*
 outputs/*
 tests/data/*
-notebooks/*
 __pycache__
 .coverage
 .mypy_cache
@@ -15,9 +14,6 @@ __pycache__
 !data/README.md
 !models/README.md
 !outputs/README.md
-!notebooks/README.md
-!notebooks/exp000_train.ipynb
-!notebooks/exp000_eval.ipynb
 
 # IntelliJ IDEAを使う場合
 # 公式参考: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839-How-to-manage-projects-under-Version-Control-Systems
