@@ -1,5 +1,5 @@
 """表示・可視化系のソースコード."""
-from typing import Union, Optional
+from typing import Union, Optional, Any
 import matplotlib.pyplot as plt
 from matplotlib import animation, rc
 import numpy as np
@@ -60,3 +60,39 @@ def animate(ims:Union[list, np.ndarray])->animation.FuncAnimation:
         return [im]
 
     return animation.FuncAnimation(fig, animate_func, frames = len(ims), interval = 1000//24)
+
+cmaps = {
+    0: [246, 173, 60],
+    1: [170, 170, 255],
+    2: [20, 255, 20],
+    3: [255, 30, 100],
+    4: [255, 255, 0],
+    5: [43, 52, 144],
+    6: [60, 175, 48],
+    7: [240, 20, 50],
+    8: [0, 128, 128],
+    9: [255, 255, 50],
+    10: [20, 255, 20],
+    11: [0, 255, 0],
+    12: [128, 200, 250],
+    13: [255, 0, 255],
+    14: [0, 175, 236],
+}
+
+
+def apply_colormap_to_maltilabel_images(CFG: Any, img: np.ndarray) -> np.ndarray:
+    """多ラベル画像にカラーマップを適用する.
+    Args:
+        img: channel last (H, W, C)の多ラベル画像.
+    Returns:
+        numpy.ndarray: channel last (H, W, 3)のカラーマップ画像.
+    """
+    cmap = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+    for c in range(CFG.n_class):
+        mp = (img[..., c]).astype(np.uint8).copy()
+        cmap_res = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+        cmap_res[:, :, :] = cmaps[c]
+        cmap_res = cmap_res * mp[:, :, np.newaxis]
+        cmap = cmap | cmap_res.astype(np.uint8)
+
+    return cmap

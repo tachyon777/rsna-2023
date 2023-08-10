@@ -2,3 +2,6 @@ opencv-python
 matplotlib
 seaborn
 pydicom
+nibabel
+scikit-learn
+albumentations
