@@ -94,10 +94,3 @@ def find_body_contour(img_bin: np.ndarray) -> list:
     contours = cv2.findContours(img_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     contours = contours[0]  # 付帯情報の除去
     return contours
-
-
-def get_moment(img_bin: np.ndarray) -> Tuple[int, int]:
-    """Calculate the center of gravity of a patient from a binary image."""
-    mu = cv2.moments(img_bin, False)
-    x, y = int(mu["m10"] / mu["m00"]), int(mu["m01"] / mu["m00"])
-    return x, y
