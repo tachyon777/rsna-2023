@@ -80,7 +80,7 @@ cmaps = {
 }
 
 
-def apply_colormap_to_maltilabel_images(CFG: Any, img: np.ndarray) -> np.ndarray:
+def apply_colormap_to_multilabel_images(CFG: Any, img: np.ndarray) -> np.ndarray:
     """多ラベル画像にカラーマップを適用する.
     Args:
         img: channel last (H, W, C)の多ラベル画像.
