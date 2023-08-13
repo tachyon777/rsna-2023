@@ -32,9 +32,23 @@ info = {
     "rs_info": rs_info,
 }
 
+def standardize_pixel_array(dcm: pydicom.dataset.FileDataset) -> np.ndarray:
+    """特殊なデータ格納方式の場合にビットシフトを適用する.
+    Reference:
+        https://www.kaggle.com/competitions/rsna-2023-abdominal-trauma-detection/discussion/427217
+    """
+    # Correct DICOM pixel_array if PixelRepresentation == 1.
+    pixel_array = dcm.pixel_array
+    if dcm.PixelRepresentation == 1:
+        bit_shift = dcm.BitsAllocated - dcm.BitsStored
+        dtype = pixel_array.dtype 
+        pixel_array = (pixel_array << bit_shift).astype(dtype) >>  bit_shift
+    return pixel_array
+
 def load_image_from_dicom(dicom: pydicom.dataset.FileDataset, meta: dict) -> np.ndarray:
     """load image from dicom path."""
-    image = dicom.pixel_array.astype(np.int16)
+    image = standardize_pixel_array(dicom)
+    image = image.astype(np.int16)
     image += meta["RescaleIntercept"]
     return image
 

@@ -28,7 +28,7 @@ dataディレクトリ直下に`rsna-2023-abdominal-trauma-detection`という�
         ├── train_images
         └── train_series_meta.csv
 ```
-学習用データは別に整形して用意し、dataディレクトリ配下に作成します。学習用データは再現できるようにコードをnotebookに配置しておきます。
+学習用データは別に整形して用意し、dataディレクトリ配下に作成します。学習用データは再現できるようにコードをnotebookに配置しておきます(`exp002.ipynb`)。
 
 ## ファイル命名規則
 **ファイル名に意味を含めない**こと。[Notionの実験管理ページ](https://www.notion.so/RSNA2023-2c6adfcd57594dd69532a2ff347d55fe?pvs=4)と紐付けて内容を管理する。
