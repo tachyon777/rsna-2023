@@ -6,3 +6,5 @@ nibabel
 scikit-learn
 albumentations
 monai
+scipy
+timm

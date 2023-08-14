@@ -1,5 +1,6 @@
 # 個別設定
 src/res.py
+notebooks/res.ipynb
 
 # Ascender
 data/*
