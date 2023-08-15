@@ -6,6 +6,8 @@ import torch
 from torch import nn
 import timm
 
+from models.efficientnet_pytorch_3d import EfficientNet3D
+
 def lock_model_encoder_weight(model: Any, mode: str) -> Any:
     """事前学習済みモデルのエンコーダー部分の重みを固定する.
     最終層のみ学習可能とする.
@@ -50,17 +52,25 @@ def lock_model_encoder_weight(model: Any, mode: str) -> Any:
     return model
 
 
-def load_models(CFG: Any, mode: str = "final") -> list:
+def load_models(CFG: Any, mode: str = "final", framework: str = "EfficientNet3D") -> list:
     """Configの内容から、学習済みの全モデルを読み込む."""
     assert mode in ["final", "best"]
+    assert framework in ["EfficientNet3D", "timm"]
     models = []
     for fold in range(CFG.train_folds):
-        model = timm.create_model(
-            CFG.backbone, 
-            pretrained=False, 
-            num_classes=CFG.n_class, 
-            in_chans=CFG.n_ch
-        )
+        if framework == "EfficientNet3D":
+            model = EfficientNet3D.from_name(
+                CFG.backbone, 
+                override_params={'num_classes': CFG.n_class}, 
+                in_channels=CFG.n_ch
+            )
+        elif framework == "timm":
+            model = timm.create_model(
+                CFG.backbone, 
+                pretrained=False, 
+                num_classes=CFG.n_class, 
+                in_chans=CFG.n_ch
+            )
         params_path = os.path.join(
             CFG.model_save_dir, CFG.exp_name, f"{CFG.exp_name}_f{fold}_{mode}.pth"
         )

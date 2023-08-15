@@ -29,14 +29,19 @@ def load_image(path: str) -> np.ndarray:
         raise Exception(f"unexpected image format: {path}")
     return image
 
-def resize_1d(image: np.ndarray, imsize: int, axis: int=2) -> np.ndarray:
-    output_shape = (image.shape[0], image.shape[1], imsize)
-
-    x_old = np.linspace(0, 1, image.shape[2])
+def resize_1d(image: np.ndarray, imsize: int, axis: int = 2) -> np.ndarray:
+    """3次元配列のうち、axisに指定した1次元をリサイズする."""
+    # 指定された軸を最後に移動
+    image_moved = np.moveaxis(image, axis, -1)
+    
+    x_old = np.linspace(0, 1, image_moved.shape[-1])
     x_new = np.linspace(0, 1, imsize)
-    interpolator = interp1d(x_old, image, axis=2)
+    interpolator = interp1d(x_old, image_moved, axis=-1)
 
-    result = interpolator(x_new)
+    result_moved = interpolator(x_new)
+    # 元の軸の順序に戻す
+    result = np.moveaxis(result_moved, -1, axis)
+    
     return result
 
 def resize(image: np.ndarray, imsize: Tuple[int, int, int]) -> np.ndarray:
@@ -95,7 +100,12 @@ class TrainDataset(Dataset):
             現在読み込む画像の形式は.png, .npy, .npzのみ対応.
         """
         impath = self.df["image_path"][idx]
-        if impath is not None:
+
+        # ファイル名がkidney.npyならば
+        if os.path.basename(impath) == "kidney.npy":
+            return self.kidney_specific(idx)
+
+        if os.path.exists(impath):
             image = load_image(impath)
         else:
             image = np.zeros(self.CFG.image_size)
@@ -128,6 +138,48 @@ class TrainDataset(Dataset):
         label = get_label(self.df, idx)
 
         return image, label
+    
+    def kidney_specific(self, idx: int) -> Tuple[torch.tensor, torch.tensor]:
+        """左右ラベルのついた腎臓を読み込み、W方向にconcatして返す."""
+        impath = self.df["image_path"][idx]
+        # 解剖学的な左右を、画像上の左右に置き換えて読み込み
+        l, r = impath.replace("kidney.npy", "kidney_r.npy"), impath.replace("kidney.npy", "kidney_l.npy")
+        if os.path.exists(l):
+            l = load_image(l)
+        else:
+            l = np.zeros(self.CFG.image_size)
+        if os.path.exists(r):
+            r = load_image(r)
+        else:
+            r = np.zeros(self.CFG.image_size)
+        # z, h, w -> h, w, z
+        l = l.transpose(1, 2, 0)
+        r = r.transpose(1, 2, 0)
+        if self.preprocess:
+            l = self.preprocess(l)
+            r = self.preprocess(r)
+        # z
+        l = resize_1d(l, self.CFG.image_size[0] ,axis=2)
+        r = resize_1d(r, self.CFG.image_size[0] ,axis=2)
+        # h
+        l = resize_1d(l, self.CFG.image_size[1] ,axis=0)
+        r = resize_1d(r, self.CFG.image_size[1] ,axis=0)
+        # w
+        image = np.concatenate([l, r], axis=1)
+        image = resize_1d(image, self.CFG.image_size[2] ,axis=1)
+
+        if self.tfms:
+            res = self.tfms(image=image)
+            image = res["image"]
+        if self.CFG.expand_ch_dim:
+            image = np.transpose(image, (2, 0, 1))
+            image = np.expand_dims(image, 0)
+            image = torch.from_numpy(image.astype(np.float32, copy=False))
+        else:
+            image = img2tensor(image)
+        label = get_label(self.df, idx)
+        return image, label
+
 
 
 class TestDataset(Dataset):
@@ -155,31 +207,95 @@ class TestDataset(Dataset):
     def __len__(self) -> int:
         return len(self.df)
 
-    def __getitem__(self, idx: int) -> tuple:
+    def __getitem__(self, idx: int) -> Tuple[torch.tensor, torch.tensor]:
         """画像とラベル(mask)の取得.
         Args:
             idx (int): self.dfに対応するデータのインデックス.
         Returns:
-            tuple (torch.tensor, torch.tensor): 画像とラベル(mask)のボリュームデータ.
+            tuple (torch.tensor, torch.tensor): 画像とラベル.
         Note:
             現在読み込む画像の形式は.png, .npy, .npzのみ対応.
         """
         impath = self.df["image_path"][idx]
-        maskpath = self.df["mask_path"][idx]
 
-        image = load_image(impath)
-        if type(maskpath) is str:
-            mask = load_image(maskpath)
+        # ファイル名がkidney.npyならば
+        if os.path.basename(impath) == "kidney.npy":
+            return self.kidney_specific(idx)
+
+        if os.path.exists(impath):
+            image = load_image(impath)
         else:
-            mask = np.zeros((image.shape+(self.CFG.n_class,)))
+            image = np.zeros(self.CFG.image_size)
+        
+        # dataset002のボリュームデータは(z, h, w)
+        image = image.transpose(1, 2, 0)
 
         if self.preprocess:
-            image, mask = self.preprocess(image, mask)
+            image = self.preprocess(image)
 
         image = resize(image, self.CFG.image_size)
-        mask = resize(mask, self.CFG.image_size)
 
-        return img2tensor(image), img2tensor(mask)
+        if self.tfms:
+            res = self.tfms(image=image)
+            image = res["image"]
+
+        if self.CFG.expand_ch_dim:
+            # ch as channel
+            # (h, w, z) -> (z, h, w) -> (ch, z, h, w)
+            image = np.transpose(image, (2, 0, 1))
+            image = np.expand_dims(image, 0)
+            image = torch.from_numpy(image.astype(np.float32, copy=False))
+
+        else:
+            # z as channel
+            # (h, w, z) -> (z, h, w)
+            image = img2tensor(image)
+            
+
+        label = get_label(self.df, idx)
+
+        return image, label
+    
+    def kidney_specific(self, idx: int) -> Tuple[torch.tensor, torch.tensor]:
+        """左右ラベルのついた腎臓を読み込み、W方向にconcatして返す."""
+        impath = self.df["image_path"][idx]
+        # 解剖学的な左右を、画像上の左右に置き換えて読み込み
+        l, r = impath.replace("kidney.npy", "kidney_r.npy"), impath.replace("kidney.npy", "kidney_l.npy")
+        if os.path.exists(l):
+            l = load_image(l)
+        else:
+            l = np.zeros(self.CFG.image_size)
+        if os.path.exists(r):
+            r = load_image(r)
+        else:
+            r = np.zeros(self.CFG.image_size)
+        # z, h, w -> h, w, z
+        l = l.transpose(1, 2, 0)
+        r = r.transpose(1, 2, 0)
+        if self.preprocess:
+            l = self.preprocess(l)
+            r = self.preprocess(r)
+        # z
+        l = resize_1d(l, self.CFG.image_size[0] ,axis=2)
+        r = resize_1d(r, self.CFG.image_size[0] ,axis=2)
+        # h
+        l = resize_1d(l, self.CFG.image_size[1] ,axis=0)
+        r = resize_1d(r, self.CFG.image_size[1] ,axis=0)
+        # w
+        image = np.concatenate([l, r], axis=1)
+        image = resize_1d(image, self.CFG.image_size[2] ,axis=1)
+
+        if self.tfms:
+            res = self.tfms(image=image)
+            image = res["image"]
+        if self.CFG.expand_ch_dim:
+            image = np.transpose(image, (2, 0, 1))
+            image = np.expand_dims(image, 0)
+            image = torch.from_numpy(image.astype(np.float32, copy=False))
+        else:
+            image = img2tensor(image)
+        label = get_label(self.df, idx)
+        return image, label
 
 
 def save_df(df: pd.DataFrame, CFG: Any) -> None:

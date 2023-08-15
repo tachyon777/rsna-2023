@@ -77,6 +77,7 @@ def validate(CFG, model, iterator, criterion) -> tuple:
                 y_pred = model(x)
                 loss = criterion(y_pred, y)
             loss_np = loss.detach().cpu().numpy()
+            y_pred = torch.softmax(y_pred, dim=1)
             y_pred = y_pred.detach().to(torch.float32).cpu()
             y = y.to(torch.float32).cpu()
             epoch_loss += loss_np
@@ -107,7 +108,7 @@ def fit_model(
     organ_index_dict_inv,
 ) -> tuple:
     """Fits a dataset to model"""
-    best_valid_score = -1
+    best_valid_score = 10**9
 
     train_losses = []
     valid_losses = []
@@ -193,7 +194,7 @@ def evaluate(CFG: Any, models: list, iterator) -> tuple:
             for model in models:
                 model.eval()
                 y_pred = model(x)
-                y_pred = torch.sigmoid(y_pred)
+                y_pred = torch.softmax(y_pred, dim=1)
                 if pres is None:
                     pres = y_pred.detach().cpu().numpy()
                     yres = y.detach().cpu().numpy()

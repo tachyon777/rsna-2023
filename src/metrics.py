@@ -3,12 +3,21 @@
 Reference:
     https://www.kaggle.com/code/metric/rsna-trauma-metric/notebook
 """
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 import pandas as pd
 import pandas.api.types
 import sklearn.metrics
+
+sample_weight = {
+    'healthy': 1,
+    'low': 2,
+    'high': 4,
+    'bowel': 2,
+    'extravasation': 6,
+    'any': 6
+}
 
 def normalize_probabilities_to_one(pred: np.ndarray) -> np.ndarray:
     # Normalize the sum of each row's probabilities to 100%.
@@ -18,21 +27,19 @@ def normalize_probabilities_to_one(pred: np.ndarray) -> np.ndarray:
     pred = pred / pred_sum[:, np.newaxis]
     return pred
 
-def logloss(pred: np.ndarray, label: np.ndarray, sample_weight: Optional[int])-> np.ndarray:
+def logloss(pred: np.ndarray, label: np.ndarray, grade: Optional[np.ndarray])-> np.ndarray:
     """loglossを計算する.
     Args:
         pred (np.ndarray): 予測ラベル. (B,C)
         label (np.ndarray): 正解ラベル. (B,C)
-        sample_weight (Optional[int]): サンプルウェイト.
+        grade (Optional[np.ndarray]): sample_weight
     Returns:
         float: logloss.
     """
-    if sample_weight is not None:
-        sample_weight = np.array([sample_weight]*len(label))
     pred = normalize_probabilities_to_one(pred)
     result = sklearn.metrics.log_loss(
         y_true=label,
         y_pred=pred,
-        sample_weight=sample_weight
+        sample_weight=grade
     )
     return result
