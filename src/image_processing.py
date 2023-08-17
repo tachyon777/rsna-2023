@@ -97,25 +97,23 @@ def find_body_contour(img_bin: np.ndarray) -> list:
     contours = contours[0]  # 付帯情報の除去
     return contours
 
-def apply_preprocess(image: np.ndarray, mask: Optional[np.ndarray]=None, resize: Optional[tuple]=None)-> Tuple[np.ndarray, np.ndarray]:
+def apply_preprocess(image: np.ndarray, resize: Optional[tuple]=None)-> Tuple[np.ndarray, np.ndarray]:
     """データ前処理. カスタマイズして使用.
     Args:
-        image (numpy.ndarray): HU値のCT画像.
-        mask (numpy.ndarray): channel lastのマスク画像.
-        resize (tuple): リサイズ後の画像サイズ. Noneならばリサイズしない.
+        image (numpy.ndarray): HU値のCT画像. (z, h, w)
+        resize (tuple): リサイズ後の画像サイズ. Noneならばリサイズしない. (h, w)
     Returns:
-        image (numpy.ndarray): windowing及び0~1に正規化.
-        mask (numpy.ndarray): channel lastのマスク画像.
+        image (numpy.ndarray): windowing及び0~1に正規化. (z, h, w)
     """
     # 0~1に正規化
     image = windowing(image, wl=0, ww=400, mode="float32")
-    if mask is None:
-        image = cv2.resize(image, (resize[1], resize[0]), interpolation=cv2.INTER_LINEAR)
-        return image
-    else:
-        image = cv2.resize(image, (resize[1], resize[0]), interpolation=cv2.INTER_LINEAR)
-        mask = cv2.resize(mask, (resize[1], resize[0]), interpolation=cv2.INTER_LINEAR)
-        return image, mask
+    if resize:
+        new_arr = []
+        for i in range(image.shape[0]):
+            new_arr.append(cv2.resize(image[i], (resize[1], resize[0])))
+        return np.stack(new_arr)
+    
+    return image
 
 def crop_organ(image: np.ndarray, mask: np.ndarray)-> Tuple[np.ndarray, np.ndarray]:
     """画像の3D配列に対して、臓器領域を切り抜き、臓器に外接するボリュームを返す."""
@@ -215,12 +213,12 @@ def area_0fill(masks: np.ndarray, organ_index_dict: dict)-> np.ndarray:
                     masks[idx,:,:,c_idx] =  fill_mask
     return masks
 
-def apply_postprocess(mask: np.ndarray)-> np.ndarray:
+def apply_postprocess(CFG: Any, mask: np.ndarray)-> np.ndarray:
     """セグメンテーション後の臓器マスクの後処理.
     Args:
         mask (numpy.ndarray): (Z, H, W, C)のマスク画像.
     """
-    mask = morpho_pytorch(mask)
+    mask = morpho_pytorch(CFG, mask)
     # mask = area_0fill(mask)
     return mask
 
@@ -240,12 +238,18 @@ def resize_1d(image: np.ndarray, imsize: int, axis: int = 2) -> np.ndarray:
     """3次元配列のうち、axisに指定した1次元をリサイズする."""
     # 指定された軸を最後に移動
     image_moved = np.moveaxis(image, axis, -1)
-    
-    x_old = np.linspace(0, 1, image_moved.shape[-1])
-    x_new = np.linspace(0, 1, imsize)
-    interpolator = interp1d(x_old, image_moved, axis=-1)
 
-    result_moved = interpolator(x_new)
+    # もし指定したaxisのshapeが1ならば、配列をコピーして拡張.
+    # sample submissionでこういう極端な例がある.
+    if image_moved.shape[-1] == 1:
+        result_moved = np.tile(image_moved, imsize)
+    
+    else:
+        x_old = np.linspace(0, 1, image_moved.shape[-1])
+        x_new = np.linspace(0, 1, imsize)
+        interpolator = interp1d(x_old, image_moved, axis=-1)
+
+        result_moved = interpolator(x_new)
     # 元の軸の順序に戻す
     result = np.moveaxis(result_moved, -1, axis)
     

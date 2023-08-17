@@ -180,7 +180,7 @@ def fit_model(
     return train_losses, valid_losses, valid_metrics
 
 
-def evaluate(CFG: Any, models: list, iterator) -> tuple:
+def evaluate(CFG: Any, models: list, iterator: Any) -> tuple:
     """推論用関数.
     評価指標を算出せずに、正解label、推論をそのまま返す.
     """
@@ -206,3 +206,26 @@ def evaluate(CFG: Any, models: list, iterator) -> tuple:
                 y_r.append(yres[i])
                 p_r.append(pres[i])
     return {"label": np.array(y_r), "pred": np.array(p_r)}
+
+def inference(CFG: Any, models: list, iterator: Any) -> np.ndarray:
+    """正解ラベルが与えられない推論用の関数.
+    iteratorが1要素(x)のみ渡すことに注意.
+    """
+    p_r = []
+    with torch.no_grad():
+        for x in iterator:
+            x = x.to(CFG.device).to(torch.float32)
+            pres = None
+            for model in models:
+                model.eval()
+                y_pred = model(x)
+                y_pred = torch.sigmoid(y_pred)
+                if pres is None:
+                    pres = y_pred.detach().cpu().numpy()
+                else:
+                    pres += y_pred.detach().cpu().numpy()
+            pres /= len(models)
+
+            for i in range(pres.shape[0]):
+                p_r.append(pres[i])
+    return np.array(p_r)

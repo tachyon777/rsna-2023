@@ -192,7 +192,7 @@ def fit_model(
     return train_losses, valid_losses, valid_dices, valid_dice_each_clsses
 
 
-def evaluate(CFG: Any, models: list, iterator) -> tuple:
+def evaluate(CFG: Any, models: list, iterator: Any) -> tuple:
     """推論用関数.
     評価指標を算出せずに、元画像、正解画像、推論結果(pred_proba, float32)をそのまま返す.
     Note:
@@ -223,3 +223,35 @@ def evaluate(CFG: Any, models: list, iterator) -> tuple:
                 y_r.append(yres[i].transpose(1, 2, 0))
                 p_r.append(pres[i].transpose(1, 2, 0))
     return {"image": np.array(x_r), "label": np.array(y_r), "pred": np.array(p_r)}
+
+def inference(CFG: Any, models: list, iterator: Any) -> np.ndarray:
+    """正解ラベルが与えられない推論用の関数.
+    iteratorが1要素(x)のみ渡すことに注意.
+    Args:
+        CFG: seg config.
+        models: モデルのリスト.
+        iterator: 推論データのイテレータ.
+    Returns:
+        np.ndarray: 推論結果.(z, h, w, ch)
+    """
+    p_r = []
+    with torch.no_grad():
+        for x in iterator:
+            x = x.to(CFG.device).to(torch.float32)
+            pres = None
+            for model in models:
+                model.eval()
+                y_pred = model(x)
+                y_pred = torch.sigmoid(y_pred)
+                if pres is None:
+                    pres = y_pred.detach().cpu().numpy()
+                else:
+                    pres += y_pred.detach().cpu().numpy()
+            pres /= len(models)
+            for i in range(pres.shape[0]):
+                p_r.append(pres[i])
+
+    p_r = np.array(p_r) # (Z, ch, H, W)
+    p_r = p_r.transpose(0, 2, 3, 1) # (z, h, w, ch)
+
+    return p_r
