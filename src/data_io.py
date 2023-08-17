@@ -1,6 +1,6 @@
 """データ入出力関連."""
 import os
-from typing import Any, List
+from typing import Any, List, Optional
 
 import numpy as np
 import pydicom
@@ -84,8 +84,11 @@ def load_metadata_from_dicom(dicom: pydicom.dataset.FileDataset) -> dict:
 
     return ret
 
-def load_dicom_series(dir_: str) -> Any:
+def load_dicom_series(dir_: str, max_slices: Optional[int]) -> Any:
     """load dicom series from directory.
+    Args:
+        dir_ (str): dicomファイルが格納されているディレクトリ.
+        max_slices (int): 画像の最大枚数. Noneならば全ての画像を読み込む.
 
     Returns:
         dicom_list: dicomファイルのリスト
@@ -99,9 +102,18 @@ def load_dicom_series(dir_: str) -> Any:
 
     Note:
         - メモリ節約のため、dicomファイルのpixel_arrayは削除。
+        - ファイル名を参照してスライス数を決定するため、RSNA2023データにのみ対応.
+        - ディレクトリ内にはdicomファイルしか存在せず、スライス番号がファイル名となっている必要がある.
     """
+
+    path_list = [[int(path.split(".")[0]), path] for path in os.listdir(dir_)]
+    path_list.sort()
+    if max_slices is not None:
+        skip = (len(path_list)+max_slices-1) // max_slices
+        path_list = path_list[::skip]
+
     tmp_list = []
-    for path in os.listdir(dir_):
+    for idx, path in path_list:
         # dicomファイル以外は除外.
         if path[-4:] != ".dcm":
             continue
@@ -116,28 +128,15 @@ def load_dicom_series(dir_: str) -> Any:
         else:
             image = None
 
-        # 画像データでないならば最後尾に格納.
-        index = (
-            10**9
-            if meta["Modality"] not in image_modality
-            else meta["InstanceNumber"]
-        )
-
-        tmp_list.append((index, path, dicom, meta, image))
-
-    tmp_list.sort()
+        tmp_list.append((idx, path, dicom, meta, image))
 
     path_list = []
-    dicom_list = []
     meta_list = []
     image_arr = []
-    # 今回dicomはいらないので省略
-    for index, path, dicom, meta, image in tmp_list:
+    for _, path, dicom, meta, image in tmp_list:
         path_list.append(path)
-        # dicom_list.append(dicom)
         meta_list.append(meta)
         if image is not None:
             image_arr.append(image)
 
-    # return dicom_list, np.array(image_arr), path_list, meta_list
     return np.array(image_arr), path_list, meta_list
