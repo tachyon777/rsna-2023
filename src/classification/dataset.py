@@ -72,8 +72,10 @@ def get_label(df: pd.DataFrame, idx: int) -> torch.tensor:
     return torch.tensor(label, dtype=torch.float32)
 
 
-class TrainDataset(Dataset):
-    """学習用データセット."""
+class TrainDatasetSolidOrgans(Dataset):
+    """固形臓器(liver, spleen, kidney)の学習用データセット.
+    症例ごとのラベルしか持たないため、ボリュームデータを返す.
+    """
 
     def __init__(
         self,
@@ -101,7 +103,7 @@ class TrainDataset(Dataset):
         """
         impath = self.df["image_path"][idx]
 
-        # ファイル名がkidney.npyならば
+        # ファイル名がkidney.npyならば左右を結合して読み込む
         if os.path.basename(impath) == "kidney.npy":
             return self.kidney_specific(idx)
 
@@ -182,13 +184,8 @@ class TrainDataset(Dataset):
 
 
 
-class TestDataset(Dataset):
-    """テスト用データセット.
-    Note:
-        - 学習時は、1組の画像とラベルのペアを返していた.
-        - 評価時は患者ごとの評価を行うため、患者ごとにインスタンスを建てる.
-        - データセットごとにこのクラスの中身を実装し直す必要あり.
-    """
+class TestDatasetSolidOrgans(Dataset):
+    """固形臓器(liver, spleen, kidney)のテスト用データセット."""
 
     def __init__(
         self,
@@ -213,12 +210,10 @@ class TestDataset(Dataset):
             idx (int): self.dfに対応するデータのインデックス.
         Returns:
             tuple (torch.tensor, torch.tensor): 画像とラベル.
-        Note:
-            現在読み込む画像の形式は.png, .npy, .npzのみ対応.
         """
         impath = self.df["image_path"][idx]
 
-        # ファイル名がkidney.npyならば
+        # ファイル名がkidney.npyならば左右を結合して読み込む
         if os.path.basename(impath) == "kidney.npy":
             return self.kidney_specific(idx)
 
@@ -297,6 +292,130 @@ class TestDataset(Dataset):
         label = get_label(self.df, idx)
         return image, label
 
+class TrainDatasetBowelExtra(Dataset):
+    """画像レベルでラベルがあるBowelとExtravasation用のデータセット."""
+    def __init__(
+        self,
+        CFG: Any,
+        df: pd.DataFrame,
+        preprocess: Union[None, Callable] = None,
+        tfms: Union[None, Callable] = None,
+    ) -> None:
+        self.df = df
+        self.CFG = CFG
+        self.preprocess = preprocess
+        self.tfms = tfms
+
+    def __len__(self) -> int:
+        return len(self.df)
+    def __getitem__(self, idx: int) -> Tuple[torch.tensor, torch.tensor]:
+        """画像とラベル(mask)の取得.
+        Args:
+            idx (int): self.dfに対応するデータのインデックス.
+        Returns:
+            tuple (torch.tensor, torch.tensor): 画像とラベル.
+        Note:
+            現在読み込む画像の形式は.png, .npy, .npzのみ対応.
+        """
+        impath = os.path.join(
+            self.CFG.image_dir,
+            "train_images",
+            str(self.df["patient_id"][idx]),
+            str(self.df["series_id"][idx]),
+            str(self.df["image_id"][idx]) + ".npy",
+        )
+
+        if os.path.exists(impath):
+            image = load_image(impath)
+        else:
+            image = np.zeros(self.CFG.image_size)
+
+        if self.preprocess:
+            image = self.preprocess(image)
+
+        image = cv2.resize(image, (self.CFG.image_size[1], self.CFG.image_size[0]), interpolation=cv2.INTER_LINEAR)
+
+        if self.tfms:
+            res = self.tfms(image=image)
+            image = res["image"]
+
+        image = img2tensor(image)
+        label = self.get_label(idx)
+
+        return image, label
+    
+    def get_label(self, idx: int)-> torch.tensor:
+        label = [
+            self.df["bowel"][idx], 
+            self.df["extravasation"][idx]
+        ]
+        if self.CFG.label_smoothing:
+            label = np.clip(label, 0.05, 0.95)
+        return torch.tensor(label, dtype=torch.float32)
+    
+class TestDatasetBowelExtra(Dataset):
+    """画像レベルでラベルがあるBowelとExtravasation用のテスト用データセット."""
+    def __init__(
+        self,
+        CFG: Any,
+        df: pd.DataFrame,
+        preprocess: Union[None, Callable] = None,
+        tfms: Union[None, Callable] = None,
+    ) -> None:
+        self.df = df
+        self.CFG = CFG
+        self.preprocess = preprocess
+        self.tfms = tfms
+
+        assert self.tfms is None
+
+    def __len__(self) -> int:
+        return len(self.df)
+    
+    def __getitem__(self, idx: int) -> Tuple[torch.tensor, torch.tensor]:
+        """画像とラベル(mask)の取得.
+        Args:
+            idx (int): self.dfに対応するデータのインデックス.
+        Returns:
+            tuple (torch.tensor, torch.tensor): 画像とラベル.
+        Note:
+            現在読み込む画像の形式は.png, .npy, .npzのみ対応.
+        """
+        impath = os.path.join(
+            self.CFG.image_dir,
+            "train_images",
+            str(self.df["patient_id"][idx]),
+            str(self.df["series_id"][idx]),
+            str(self.df["image_id"][idx]) + ".npy",
+        )
+
+        if os.path.exists(impath):
+            image = load_image(impath)
+        else:
+            image = np.zeros(self.CFG.image_size)
+
+        if self.preprocess:
+            image = self.preprocess(image)
+
+        image = cv2.resize(image, (self.CFG.image_size[1], self.CFG.image_size[0]), interpolation=cv2.INTER_LINEAR)
+
+        if self.tfms:
+            res = self.tfms(image=image)
+            image = res["image"]
+
+        image = img2tensor(image)
+        label = self.get_label(idx)
+
+        return image, label
+    
+    def get_label(self, idx: int)-> torch.tensor:
+        label = [
+            self.df["bowel"][idx], 
+            self.df["extravasation"][idx]
+        ]
+        if self.CFG.label_smoothing:
+            label = np.clip(label, 0.05, 0.95)
+        return torch.tensor(label, dtype=torch.float32)
 
 def save_df(df: pd.DataFrame, CFG: Any) -> None:
     """DataFrameをcsv形式で保存する.

@@ -27,16 +27,19 @@ def normalize_probabilities_to_one(pred: np.ndarray) -> np.ndarray:
     pred = pred / pred_sum[:, np.newaxis]
     return pred
 
-def logloss(pred: np.ndarray, label: np.ndarray, grade: Optional[np.ndarray])-> np.ndarray:
+def logloss(pred: np.ndarray, label: np.ndarray, norm:bool=False, grade: Optional[np.ndarray]=None)-> np.ndarray:
     """loglossを計算する.
     Args:
         pred (np.ndarray): 予測ラベル. (B,C)
         label (np.ndarray): 正解ラベル. (B,C)
-        grade (Optional[np.ndarray]): sample_weight
+        norm (bool): Trueの場合、各行の和を1に正規化する. (default: False)
+        grade (Optional[np.ndarray]): sample_weight (default: None)
     Returns:
         float: logloss.
     """
-    pred = normalize_probabilities_to_one(pred)
+    if norm:
+        pred = normalize_probabilities_to_one(pred)
+    pred = np.nan_to_num(pred, 0.0)
     result = sklearn.metrics.log_loss(
         y_true=label,
         y_pred=pred,
