@@ -11,7 +11,7 @@ kaggleの[RSNA2023コンペ](https://www.kaggle.com/competitions/rsna-2023-abdom
 
 # Getting Started
 dataディレクトリ直下に`rsna-2023-abdominal-trauma-detection`というディレクトリを配置し、その中にデータセットを配置してください。
-なお、このディレクトリは直接学習には使用しないかつデータ量が大きいので、外付けHDDなどに配置の上シンボリックリンクを作成することをオススメします。  
+なお、このディレクトリは直接学習には使用しないかつデータ量が大きい(約500GB)ので、外付けHDDなどに配置の上シンボリックリンクを作成することをオススメします。  
 例：
 ```
 .
@@ -37,3 +37,13 @@ exp000_train.ipynb
 exp000_eval.ipynb
 その他探索的データ分析・実験・検証を行うファイル名：
 exp000.ipynb
+
+# Experiment Overview
+## exo012
+![pipeline-2](images/pipeline-2.PNG)
+exp004, 009, 011の3モデルを組み合わせた推論パイプライン。  
+与えられたデータから推察される、最もオーソドックスな構成。  
+それぞれのモデルの詰めは甘い、ベースライン的モデル。  
+exp004: U-Netの部分  
+exp009: 3D-CNNの部分  
+exp011: CNN Classifierの部分  
