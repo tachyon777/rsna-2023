@@ -39,7 +39,7 @@ exp000_eval.ipynb
 exp000.ipynb
 
 # Experiment Overview
-## exo012
+## exp012
 ![pipeline-2](images/pipeline-2.PNG)
 exp004, 009, 011の3モデルを組み合わせた推論パイプライン。  
 与えられたデータから推察される、最もオーソドックスな構成。  
