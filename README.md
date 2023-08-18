@@ -1,6 +1,8 @@
 # RSNA 2023 Abdominal Trauma Detection
 
-kaggleの[RSNA2023コンペ](https://www.kaggle.com/competitions/rsna-2023-abdominal-trauma-detection)の実験管理用リポジトリ。
+kaggleの[RSNA2023コンペ](https://www.kaggle.com/competitions/rsna-2023-abdominal-trauma-detection)の実験管理用リポジトリ。  
+山本の[Notion](https://blue-foe-524.notion.site/RSNA2023-2c6adfcd57594dd69532a2ff347d55fe?pvs=4)はこちら。    
+
 
 # Prerequisites
 必ずしも統一する必要はありません。
@@ -8,6 +10,7 @@ kaggleの[RSNA2023コンペ](https://www.kaggle.com/competitions/rsna-2023-abdom
 - pytorch 1.11.0
 - その他機械学習に用いられる一般的なライブラリを必要に応じてinstall
 - 特別必要に思われるモジュールはrequirements.txtに記載
+
 
 # Getting Started
 dataディレクトリ直下に`rsna-2023-abdominal-trauma-detection`というディレクトリを配置し、その中にデータセットを配置してください。
@@ -38,7 +41,9 @@ exp000_eval.ipynb
 その他探索的データ分析・実験・検証を行うファイル名：
 exp000.ipynb
 
+
 # Experiment Overview
+
 ## exp012
 ![pipeline-2](images/pipeline-2.PNG)
 exp004, 009, 011の3モデルを組み合わせた推論パイプライン。  
