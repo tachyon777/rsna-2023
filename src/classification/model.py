@@ -19,12 +19,20 @@ def lock_model_encoder_weight(model: Any, mode: str) -> Any:
         timm以外のフレームワークやViT系を使ったりする場合は適宜書き換える必要がある.
     """
 
-    enet3d_head = [
+    enet3d_b1_head = [
         "_conv_head.weight",
         "_bn1.weight",
         "_bn1.bias",
         "_fc.weight",
         "_fc.bias",
+    ]
+
+    enet3d_b4_head = [
+        "module._conv_head.weight",
+        "module._bn1.weight",
+        "module._bn1.bias",
+        "module._fc.weight",
+        "module._fc.bias"
     ]
     timm_head = [
         "module.conv_head.weight",
@@ -33,10 +41,11 @@ def lock_model_encoder_weight(model: Any, mode: str) -> Any:
         "module.classifier.weight",
         "module.classifier.bias"
     ]
+    heads = enet3d_b1_head + enet3d_b4_head + timm_head
     flag = 0
     if mode == "lock":
         for hname, param in model.named_parameters():
-            if (hname in timm_head) or (hname in enet3d_head):
+            if hname in heads:
                 flag = 1
                 param.requires_grad = True
             else:

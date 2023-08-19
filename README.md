@@ -35,18 +35,18 @@ dataディレクトリ直下に`rsna-2023-abdominal-trauma-detection`という�
 ```
 
 ## Create Dataset
-学習用データ(`dataset001`)は別に整形して用意し、dataディレクトリ配下に作成します。学習用データは再現できるようにコードをnotebooksに配置(`exp002.ipynb`)。  
+学習用データ(`dataset001`)は別に整形して用意し、dataディレクトリ配下に作成。学習用データは再現できるようにコードをnotebooksに配置(`exp002.ipynb`)。  
 更に、`dataset001`から`exp005.ipynb`を介して`dataset002`を作成。こちらは、3次元の臓器CTデータとなる。  
 `dataset001`: 約750GB, 処理時間12時間程度  
 `dataset002`: 約60GB, 処理時間10時間程度  
 
 ## ファイル命名規則
 **ファイル名に意味を含めない**こと。[Notionの実験管理ページ](https://www.notion.so/RSNA2023-2c6adfcd57594dd69532a2ff347d55fe?pvs=4)と紐付けて内容を管理する。
-深層学習を行うファイル名：
-exp000_train.ipynb
-exp000_eval.ipynb
-その他探索的データ分析・実験・検証を行うファイル名：
-exp000.ipynb
+深層学習を行うファイル名：  
+exp000_train.ipynb  
+exp000_eval.ipynb  
+その他探索的データ分析・実験・検証を行うファイル名：  
+exp000.ipynb  
 
 
 # Experiment Overview

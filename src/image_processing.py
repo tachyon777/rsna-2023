@@ -120,10 +120,10 @@ def crop_organ(image: np.ndarray, mask: np.ndarray)-> Tuple[np.ndarray, np.ndarr
     # 臓器が存在する部分のインデックスを取得
     z_indices, h_indices, w_indices = np.where(mask != 0)
 
-    """# 各軸に沿って最小と最大のインデックスを見つける
-    z_min, z_max = np.min(z_indices), np.max(z_indices)
-    h_min, h_max = np.min(h_indices), np.max(h_indices)
-    w_min, w_max = np.min(w_indices), np.max(w_indices)"""
+    # この部分が適用される例：
+    # 腎臓が片方しか無く、左右分割したあとに全くボクセルがない方が存在する場合
+    if z_indices.shape[0] == 0:
+        return np.zeros_like(image), np.zeros_like(mask)
 
     # 各軸に沿って、p%のボクセルが含まれる範囲を見つける
     p = 98
@@ -142,7 +142,7 @@ def crop_organ(image: np.ndarray, mask: np.ndarray)-> Tuple[np.ndarray, np.ndarr
     cropped_image = image[z_min:z_max+1, h_min:h_max+1, w_min:w_max+1]
     cropped_mask = mask[z_min:z_max+1, h_min:h_max+1, w_min:w_max+1]
 
-    # crop segmentation
+    # 完全に臓器の形状にクロップする場合
     # cropped_image = cropped_image * cropped_mask + (1 - cropped_mask) * -1000
 
     return cropped_image, cropped_mask
