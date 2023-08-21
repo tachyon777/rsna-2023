@@ -29,11 +29,12 @@ def load_image(path: str) -> np.ndarray:
         raise Exception(f"unexpected image format: {path}")
     return image
 
+
 def resize_1d(image: np.ndarray, imsize: int, axis: int = 2) -> np.ndarray:
     """3次元配列のうち、axisに指定した1次元をリサイズする."""
     # 指定された軸を最後に移動
     image_moved = np.moveaxis(image, axis, -1)
-    
+
     x_old = np.linspace(0, 1, image_moved.shape[-1])
     x_new = np.linspace(0, 1, imsize)
     interpolator = interp1d(x_old, image_moved, axis=-1)
@@ -41,8 +42,9 @@ def resize_1d(image: np.ndarray, imsize: int, axis: int = 2) -> np.ndarray:
     result_moved = interpolator(x_new)
     # 元の軸の順序に戻す
     result = np.moveaxis(result_moved, -1, axis)
-    
+
     return result
+
 
 def resize(image: np.ndarray, imsize: Tuple[int, int, int]) -> np.ndarray:
     """ボリュームデータのリサイズ.
@@ -63,6 +65,7 @@ def img2tensor(img, dtype: np.dtype = np.float32):
         img = np.expand_dims(img, 2)
     img = np.transpose(img, (2, 0, 1))
     return torch.from_numpy(img.astype(dtype, copy=False))
+
 
 def get_label(df: pd.DataFrame, idx: int) -> torch.tensor:
     """ラベルを取得する.healthy, low, highの順"""
@@ -111,7 +114,7 @@ class TrainDatasetSolidOrgans(Dataset):
             image = load_image(impath)
         else:
             image = np.zeros(self.CFG.image_size)
-        
+
         # dataset002のボリュームデータは(z, h, w)
         image = image.transpose(1, 2, 0)
 
@@ -135,17 +138,19 @@ class TrainDatasetSolidOrgans(Dataset):
             # z as channel
             # (h, w, z) -> (z, h, w)
             image = img2tensor(image)
-            
 
         label = get_label(self.df, idx)
 
         return image, label
-    
+
     def kidney_specific(self, idx: int) -> Tuple[torch.tensor, torch.tensor]:
         """左右ラベルのついた腎臓を読み込み、W方向にconcatして返す."""
         impath = self.df["image_path"][idx]
         # 解剖学的な左右を、画像上の左右に置き換えて読み込み
-        l, r = impath.replace("kidney.npy", "kidney_r.npy"), impath.replace("kidney.npy", "kidney_l.npy")
+        l, r = (
+            impath.replace("kidney.npy", "kidney_r.npy"),
+            impath.replace("kidney.npy", "kidney_l.npy"),
+        )
         if os.path.exists(l):
             l = load_image(l)
         else:
@@ -161,14 +166,14 @@ class TrainDatasetSolidOrgans(Dataset):
             l = self.preprocess(l)
             r = self.preprocess(r)
         # z
-        l = resize_1d(l, self.CFG.image_size[0] ,axis=2)
-        r = resize_1d(r, self.CFG.image_size[0] ,axis=2)
+        l = resize_1d(l, self.CFG.image_size[0], axis=2)
+        r = resize_1d(r, self.CFG.image_size[0], axis=2)
         # h
-        l = resize_1d(l, self.CFG.image_size[1] ,axis=0)
-        r = resize_1d(r, self.CFG.image_size[1] ,axis=0)
+        l = resize_1d(l, self.CFG.image_size[1], axis=0)
+        r = resize_1d(r, self.CFG.image_size[1], axis=0)
         # w
         image = np.concatenate([l, r], axis=1)
-        image = resize_1d(image, self.CFG.image_size[2] ,axis=1)
+        image = resize_1d(image, self.CFG.image_size[2], axis=1)
 
         if self.tfms:
             res = self.tfms(image=image)
@@ -181,7 +186,6 @@ class TrainDatasetSolidOrgans(Dataset):
             image = img2tensor(image)
         label = get_label(self.df, idx)
         return image, label
-
 
 
 class TestDatasetSolidOrgans(Dataset):
@@ -221,7 +225,7 @@ class TestDatasetSolidOrgans(Dataset):
             image = load_image(impath)
         else:
             image = np.zeros(self.CFG.image_size)
-        
+
         # dataset002のボリュームデータは(z, h, w)
         image = image.transpose(1, 2, 0)
 
@@ -245,17 +249,19 @@ class TestDatasetSolidOrgans(Dataset):
             # z as channel
             # (h, w, z) -> (z, h, w)
             image = img2tensor(image)
-            
 
         label = get_label(self.df, idx)
 
         return image, label
-    
+
     def kidney_specific(self, idx: int) -> Tuple[torch.tensor, torch.tensor]:
         """左右ラベルのついた腎臓を読み込み、W方向にconcatして返す."""
         impath = self.df["image_path"][idx]
         # 解剖学的な左右を、画像上の左右に置き換えて読み込み
-        l, r = impath.replace("kidney.npy", "kidney_r.npy"), impath.replace("kidney.npy", "kidney_l.npy")
+        l, r = (
+            impath.replace("kidney.npy", "kidney_r.npy"),
+            impath.replace("kidney.npy", "kidney_l.npy"),
+        )
         if os.path.exists(l):
             l = load_image(l)
         else:
@@ -271,14 +277,14 @@ class TestDatasetSolidOrgans(Dataset):
             l = self.preprocess(l)
             r = self.preprocess(r)
         # z
-        l = resize_1d(l, self.CFG.image_size[0] ,axis=2)
-        r = resize_1d(r, self.CFG.image_size[0] ,axis=2)
+        l = resize_1d(l, self.CFG.image_size[0], axis=2)
+        r = resize_1d(r, self.CFG.image_size[0], axis=2)
         # h
-        l = resize_1d(l, self.CFG.image_size[1] ,axis=0)
-        r = resize_1d(r, self.CFG.image_size[1] ,axis=0)
+        l = resize_1d(l, self.CFG.image_size[1], axis=0)
+        r = resize_1d(r, self.CFG.image_size[1], axis=0)
         # w
         image = np.concatenate([l, r], axis=1)
-        image = resize_1d(image, self.CFG.image_size[2] ,axis=1)
+        image = resize_1d(image, self.CFG.image_size[2], axis=1)
 
         if self.tfms:
             res = self.tfms(image=image)
@@ -292,8 +298,10 @@ class TestDatasetSolidOrgans(Dataset):
         label = get_label(self.df, idx)
         return image, label
 
+
 class TrainDatasetBowelExtra(Dataset):
     """画像レベルでラベルがあるBowelとExtravasation用のデータセット."""
+
     def __init__(
         self,
         CFG: Any,
@@ -308,6 +316,7 @@ class TrainDatasetBowelExtra(Dataset):
 
     def __len__(self) -> int:
         return len(self.df)
+
     def __getitem__(self, idx: int) -> Tuple[torch.tensor, torch.tensor]:
         """画像とラベル(mask)の取得.
         Args:
@@ -333,7 +342,11 @@ class TrainDatasetBowelExtra(Dataset):
         if self.preprocess:
             image = self.preprocess(image)
 
-        image = cv2.resize(image, (self.CFG.image_size[1], self.CFG.image_size[0]), interpolation=cv2.INTER_LINEAR)
+        image = cv2.resize(
+            image,
+            (self.CFG.image_size[1], self.CFG.image_size[0]),
+            interpolation=cv2.INTER_LINEAR,
+        )
 
         if self.tfms:
             res = self.tfms(image=image)
@@ -343,18 +356,17 @@ class TrainDatasetBowelExtra(Dataset):
         label = self.get_label(idx)
 
         return image, label
-    
-    def get_label(self, idx: int)-> torch.tensor:
-        label = [
-            self.df["bowel"][idx], 
-            self.df["extravasation"][idx]
-        ]
+
+    def get_label(self, idx: int) -> torch.tensor:
+        label = [self.df["bowel"][idx], self.df["extravasation"][idx]]
         if self.CFG.label_smoothing:
             label = np.clip(label, 0.05, 0.95)
         return torch.tensor(label, dtype=torch.float32)
-    
+
+
 class TestDatasetBowelExtra(Dataset):
     """画像レベルでラベルがあるBowelとExtravasation用のテスト用データセット."""
+
     def __init__(
         self,
         CFG: Any,
@@ -371,7 +383,7 @@ class TestDatasetBowelExtra(Dataset):
 
     def __len__(self) -> int:
         return len(self.df)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.tensor, torch.tensor]:
         """画像とラベル(mask)の取得.
         Args:
@@ -397,7 +409,11 @@ class TestDatasetBowelExtra(Dataset):
         if self.preprocess:
             image = self.preprocess(image)
 
-        image = cv2.resize(image, (self.CFG.image_size[1], self.CFG.image_size[0]), interpolation=cv2.INTER_LINEAR)
+        image = cv2.resize(
+            image,
+            (self.CFG.image_size[1], self.CFG.image_size[0]),
+            interpolation=cv2.INTER_LINEAR,
+        )
 
         if self.tfms:
             res = self.tfms(image=image)
@@ -407,15 +423,13 @@ class TestDatasetBowelExtra(Dataset):
         label = self.get_label(idx)
 
         return image, label
-    
-    def get_label(self, idx: int)-> torch.tensor:
-        label = [
-            self.df["bowel"][idx], 
-            self.df["extravasation"][idx]
-        ]
+
+    def get_label(self, idx: int) -> torch.tensor:
+        label = [self.df["bowel"][idx], self.df["extravasation"][idx]]
         if self.CFG.label_smoothing:
             label = np.clip(label, 0.05, 0.95)
         return torch.tensor(label, dtype=torch.float32)
+
 
 def save_df(df: pd.DataFrame, CFG: Any) -> None:
     """DataFrameをcsv形式で保存する.

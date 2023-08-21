@@ -32,6 +32,7 @@ info = {
     "rs_info": rs_info,
 }
 
+
 def standardize_pixel_array(dcm: pydicom.dataset.FileDataset) -> np.ndarray:
     """特殊なデータ格納方式の場合にビットシフトを適用する.
     Reference:
@@ -41,9 +42,10 @@ def standardize_pixel_array(dcm: pydicom.dataset.FileDataset) -> np.ndarray:
     pixel_array = dcm.pixel_array
     if dcm.PixelRepresentation == 1:
         bit_shift = dcm.BitsAllocated - dcm.BitsStored
-        dtype = pixel_array.dtype 
-        pixel_array = (pixel_array << bit_shift).astype(dtype) >>  bit_shift
+        dtype = pixel_array.dtype
+        pixel_array = (pixel_array << bit_shift).astype(dtype) >> bit_shift
     return pixel_array
+
 
 def load_image_from_dicom(dicom: pydicom.dataset.FileDataset, meta: dict) -> np.ndarray:
     """load image from dicom path."""
@@ -51,6 +53,7 @@ def load_image_from_dicom(dicom: pydicom.dataset.FileDataset, meta: dict) -> np.
     image = image.astype(np.int16)
     image += meta["RescaleIntercept"]
     return image
+
 
 def load_metadata_from_dicom(dicom: pydicom.dataset.FileDataset) -> dict:
     """load metadata from dicom path.
@@ -84,6 +87,7 @@ def load_metadata_from_dicom(dicom: pydicom.dataset.FileDataset) -> dict:
 
     return ret
 
+
 def load_dicom_series(dir_: str, max_slices: Optional[int]) -> Any:
     """load dicom series from directory.
     Args:
@@ -109,7 +113,7 @@ def load_dicom_series(dir_: str, max_slices: Optional[int]) -> Any:
     path_list = [[int(path.split(".")[0]), path] for path in os.listdir(dir_)]
     path_list.sort()
     if max_slices is not None:
-        skip = (len(path_list)+max_slices-1) // max_slices
+        skip = (len(path_list) + max_slices - 1) // max_slices
         path_list = path_list[::skip]
 
     tmp_list = []

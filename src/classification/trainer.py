@@ -108,7 +108,7 @@ def fit_model(
     organ_index_dict_inv,
 ) -> tuple:
     """Fits a dataset to model"""
-    best_valid_score = 10**9
+    best_valid_score = 10 ** 9
 
     train_losses = []
     valid_losses = []
@@ -129,9 +129,7 @@ def fit_model(
         train_loss = train(
             CFG, model, train_iterator, optimizer, loss_criterion, scaler
         )
-        valid_loss, valid_metric = validate(
-            CFG, model, valid_iterator, loss_criterion
-        )
+        valid_loss, valid_metric = validate(CFG, model, valid_iterator, loss_criterion)
 
         train_losses.append(train_loss)
         valid_losses.append(valid_loss)
@@ -153,8 +151,9 @@ def fit_model(
 
         end_time = time.time()
 
-        epoch_mins, epoch_secs = (end_time - start_time) // 60, round(
-            (end_time - start_time) % 60
+        epoch_mins, epoch_secs = (
+            (end_time - start_time) // 60,
+            round((end_time - start_time) % 60),
         )
         logger.info(
             f"Epoch: {epoch+1:02} | Epoch Time: {epoch_mins:.0f}m {epoch_secs}s"
@@ -206,6 +205,7 @@ def evaluate(CFG: Any, models: list, iterator: Any) -> tuple:
                 y_r.append(yres[i])
                 p_r.append(pres[i])
     return {"label": np.array(y_r), "pred": np.array(p_r)}
+
 
 def inference(CFG: Any, models: list, iterator: Any) -> np.ndarray:
     """正解ラベルが与えられない推論用の関数.

@@ -86,7 +86,7 @@ class TrainDataset(Dataset):
         if maskpath is not None:
             mask = load_image(maskpath)
         else:
-            mask = np.zeros((image.shape+(self.CFG.n_class,)))
+            mask = np.zeros((image.shape + (self.CFG.n_class,)))
 
         if self.preprocess:
             image, mask = self.preprocess(image, mask)
@@ -142,7 +142,7 @@ class TestDataset(Dataset):
         if type(maskpath) is str:
             mask = load_image(maskpath)
         else:
-            mask = np.zeros((image.shape+(self.CFG.n_class,)))
+            mask = np.zeros((image.shape + (self.CFG.n_class,)))
 
         if self.preprocess:
             image, mask = self.preprocess(image, mask)

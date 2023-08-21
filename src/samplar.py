@@ -2,8 +2,8 @@ import random
 import numpy as np
 from torch.utils.data.sampler import Sampler
 
-#https://github.com/issamemari/pytorch-multilabel-balanced-sampler
-#結構書き換えました(num_iterationについて)
+# https://github.com/issamemari/pytorch-multilabel-balanced-sampler
+# 結構書き換えました(num_iterationについて)
 class MultilabelBalancedRandomSampler(Sampler):
     """
     MultilabelBalancedRandomSampler: Given a multilabel dataset of length n_samples and
@@ -15,7 +15,14 @@ class MultilabelBalancedRandomSampler(Sampler):
     will have at least batch_size / n_classes samples as batch_size approaches infinity
     """
 
-    def __init__(self, CFG, labels, indices=None, class_choice="least_sampled",num_iteration=None):
+    def __init__(
+        self,
+        CFG,
+        labels,
+        indices=None,
+        class_choice="least_sampled",
+        num_iteration=None,
+    ):
         """
         Parameters:
         -----------
@@ -48,9 +55,9 @@ class MultilabelBalancedRandomSampler(Sampler):
         assert class_choice in ["least_sampled", "random", "cycle"]
         self.class_choice = class_choice
         self.current_class = 0
-        
+
         if num_iteration is not None:
-            self.num_iteration = num_iteration*self.CFG.batch_size
+            self.num_iteration = num_iteration * self.CFG.batch_size
         else:
             self.num_iteration = len(self.indices)
 

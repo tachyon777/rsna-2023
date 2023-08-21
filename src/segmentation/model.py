@@ -48,7 +48,6 @@ def lock_model_encoder_weight(model: Any, mode: str) -> Any:
         "cnn_model.encoder._bn1.weight",
         "cnn_model.encoder._bn1.bias",
     ]
-    
 
     if mode == "lock":
         for hname, param in model.named_parameters():

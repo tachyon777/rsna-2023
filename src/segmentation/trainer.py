@@ -160,8 +160,9 @@ def fit_model(
 
         end_time = time.time()
 
-        epoch_mins, epoch_secs = (end_time - start_time) // 60, round(
-            (end_time - start_time) % 60
+        epoch_mins, epoch_secs = (
+            (end_time - start_time) // 60,
+            round((end_time - start_time) % 60),
         )
         logger.info(
             f"Epoch: {epoch+1:02} | Epoch Time: {epoch_mins:.0f}m {epoch_secs}s"
@@ -224,6 +225,7 @@ def evaluate(CFG: Any, models: list, iterator: Any) -> tuple:
                 p_r.append(pres[i].transpose(1, 2, 0))
     return {"image": np.array(x_r), "label": np.array(y_r), "pred": np.array(p_r)}
 
+
 def inference(CFG: Any, models: list, iterator: Any) -> np.ndarray:
     """正解ラベルが与えられない推論用の関数.
     iteratorが1要素(x)のみ渡すことに注意.
@@ -251,7 +253,7 @@ def inference(CFG: Any, models: list, iterator: Any) -> np.ndarray:
             for i in range(pres.shape[0]):
                 p_r.append(pres[i])
 
-    p_r = np.array(p_r) # (Z, ch, H, W)
-    p_r = p_r.transpose(0, 2, 3, 1) # (z, h, w, ch)
+    p_r = np.array(p_r)  # (Z, ch, H, W)
+    p_r = p_r.transpose(0, 2, 3, 1)  # (z, h, w, ch)
 
     return p_r
