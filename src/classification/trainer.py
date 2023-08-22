@@ -228,4 +228,5 @@ def inference(CFG: Any, models: list, iterator: Any) -> np.ndarray:
 
             for i in range(pres.shape[0]):
                 p_r.append(pres[i])
+                
     return np.array(p_r)

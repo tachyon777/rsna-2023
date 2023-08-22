@@ -146,7 +146,7 @@ class Inference:
         pred = cls_inference(self.CFG_LSK, self.lsk_models, lsk_iterator)
         return pred
 
-    def get_lsk_volumes(self, data: np.ndarray) -> Dict[str, np.ndarray]:
+    def get_lsk_volumes(self, data: np.ndarray) -> np.ndarray:
         """Segmentationからliver, spleen, kidneyのvolume dataを作成.
         Args:
             data: (Z, H, W).

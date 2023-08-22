@@ -113,8 +113,8 @@ def load_dicom_series(dir_: str, max_slices: Optional[int]) -> Any:
     path_list = [[int(path.split(".")[0]), path] for path in os.listdir(dir_)]
     path_list.sort()
     if max_slices is not None:
-        skip = (len(path_list) + max_slices - 1) // max_slices
-        path_list = path_list[::skip]
+        step = (len(path_list) + max_slices - 1) // max_slices
+        path_list = path_list[::step]
 
     tmp_list = []
     for idx, path in path_list:

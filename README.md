@@ -43,10 +43,10 @@ dataディレクトリ直下に`rsna-2023-abdominal-trauma-detection`という�
 ## ファイル命名規則
 **ファイル名に意味を含めない**こと。[Notionの実験管理ページ](https://www.notion.so/RSNA2023-2c6adfcd57594dd69532a2ff347d55fe?pvs=4)と紐付けて内容を管理する。
 深層学習を行うファイル名：  
-exp000_train.ipynb  
-exp000_eval.ipynb  
+`exp000_train.ipynb`  
+`exp000_eval.ipynb`  
 その他探索的データ分析・実験・検証を行うファイル名：  
-exp000.ipynb  
+`exp000.ipynb`  
 
 
 # Experiment Overview
