@@ -57,7 +57,7 @@ def logloss(
     if norm:
         pred = normalize_probabilities_to_one(pred)
     # label normが入っている場合に、labelをバイナリ化する.
-    label = (label > 0.5).astype(np.float32)
+    # label = (label > 0.5).astype(np.float32)
     pred = np.nan_to_num(pred, 0.0)
     result = sklearn.metrics.log_loss(y_true=label, y_pred=pred, sample_weight=grade)
     return result

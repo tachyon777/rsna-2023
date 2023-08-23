@@ -150,12 +150,12 @@ def fit_model(
             if CFG.num_gpus == 1:
                 torch.save(
                     model.state_dict(),
-                    os.path.join(CFG.model_save_dir, CFG.exp_name, f"{name}_best.pt"),
+                    os.path.join(CFG.model_save_dir, CFG.exp_name, f"{name}_best.pth"),
                 )
             else:
                 torch.save(
                     model.module.state_dict(),
-                    os.path.join(CFG.model_save_dir, CFG.exp_name, f"{name}_best.pt"),
+                    os.path.join(CFG.model_save_dir, CFG.exp_name, f"{name}_best.pth"),
                 )
 
         end_time = time.time()

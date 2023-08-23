@@ -326,28 +326,33 @@ class TrainDatasetBowelExtra(Dataset):
         Note:
             現在読み込む画像の形式は.png, .npy, .npzのみ対応.
         """
-        impath = os.path.join(
-            self.CFG.image_dir,
-            "train_images",
-            str(self.df["patient_id"][idx]),
-            str(self.df["series_id"][idx]),
-            str(self.df["image_id"][idx]) + ".npy",
-        )
-
-        if os.path.exists(impath):
-            image = load_image(impath)
-        else:
-            image = np.zeros(self.CFG.image_size)
+        arr = []
+        for ch in range(-(self.CFG.n_ch//2), self.CFG.n_ch//2+1):
+            impath = os.path.join(
+                self.CFG.image_dir,
+                "train_images",
+                str(self.df["patient_id"][idx]),
+                str(self.df["series_id"][idx]),
+                str(int(self.df["image_id"][idx] + ch)) + ".npy",
+            )
+            if os.path.exists(impath):
+                image = load_image(impath)
+            else:
+                image = np.zeros(self.CFG.image_size)
+            image = cv2.resize(
+                image,
+                (self.CFG.image_size[1], self.CFG.image_size[0]),
+                interpolation=cv2.INTER_LINEAR,
+            )
+            arr.append(image)
+        
+        # (ch, h, w)の配列を作成
+        image = np.stack(arr, axis=0)
+        image = image.transpose(1, 2, 0) #ch last
 
         if self.preprocess:
             image = self.preprocess(image)
-
-        image = cv2.resize(
-            image,
-            (self.CFG.image_size[1], self.CFG.image_size[0]),
-            interpolation=cv2.INTER_LINEAR,
-        )
-
+            
         if self.tfms:
             res = self.tfms(image=image)
             image = res["image"]
