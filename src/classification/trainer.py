@@ -59,7 +59,8 @@ def train(CFG, model, iterator, optimizer, criterion, scaler) -> float:
 
 def validate(CFG, model, iterator, criterion) -> tuple:
     epoch_loss = 0
-    val_metric = []
+    y_pred_list = []
+    y_list = []
     model.eval()
 
     bar = tqdm(iterator) if CFG.progress_bar else iterator
@@ -81,12 +82,14 @@ def validate(CFG, model, iterator, criterion) -> tuple:
             y_pred = y_pred.detach().to(torch.float32).cpu()
             y = y.to(torch.float32).cpu()
             epoch_loss += loss_np
-            val_metric.append(logloss(y_pred, y, None))
+            y_pred_list.append(y_pred)
+            y_list.append(y)
 
             if CFG.progress_bar:
                 bar.set_description("Validation loss: %.5f" % (loss_np))
-
-    val_metric = np.array(val_metric)
+    y_pred_list = torch.cat(y_pred_list, dim=0)
+    y_list = torch.cat(y_list, dim=0)
+    val_metric = logloss(y_pred_list, y_list)
     metric_mean = val_metric.mean()
 
     return epoch_loss / len(iterator), metric_mean

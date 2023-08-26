@@ -6,6 +6,7 @@ warnings.filterwarnings("ignore")
 from collections import defaultdict
 from typing import Any, Dict
 import numpy as np
+import pandas as pd
 import torch
 
 from src.data_io import load_dicom_series
@@ -50,9 +51,9 @@ class Inference:
         self.CFG_LSK = CFG_LSK
         self.CFG_BE = CFG_BE
 
-        self.seg_models = seg_load_models(CFG_SEG)
-        self.lsk_models = cls_load_models(CFG_LSK)
-        self.be_models = cls_load_models(CFG_BE, framework="timm")
+        self.seg_models = seg_load_models(CFG_SEG, mode=self.CFG_INF.seg_model_mode)
+        self.lsk_models = cls_load_models(CFG_LSK, mode=self.CFG_INF.lsk_model_mode)
+        self.be_models = cls_load_models(CFG_BE, mode=self.CFG_INF.be_model_mode, framework="timm")
 
     def __call__(self, pid: int) -> tuple:
         """inference process.
@@ -84,11 +85,11 @@ class Inference:
             - １症例に複数シリーズ存在する場合、各シリーズに対して推論を行い、全予測結果の最大値を採用する.
             - 推論時間的に厳しければ、最初のシリーズのみを採用するなど検討.
         """
-        df_stydy = self.CFG_INF.df_series_meta[
-            self.CFG_INF.df_series_meta["patient_id"] == pid
-        ]
+        df_study = self.CFG_INF.df_series_meta[self.CFG_INF.df_series_meta['patient_id']==pid].reset_index(drop=True)
+        # df_study内のそれぞれのシリーズを取得して、画像枚数に対して降順にソート.
+        df_study = self.get_slices_and_sort(df_study)
         preds = defaultdict(list)
-        for sid in df_stydy["series_id"].to_list()[: self.CFG_INF.max_series]:
+        for sid in df_study["series_id"].to_list()[: self.CFG_INF.max_series]:
             data = self.load_data(pid, sid)
             if data is None:
                 continue
@@ -133,6 +134,23 @@ class Inference:
         if len(image_arr) < self.CFG_INF.min_slices:
             image_arr = resize_1d(image_arr, self.CFG_INF.min_slices, axis=0)
         return image_arr
+    
+    def get_slices_and_sort(self, df_study: pd.DataFrame)-> pd.DataFrame:
+        """シリーズのスライス数を取得して、スライス数に対して降順にソートする.
+        Args:
+            df_study (pd.DataFrame): series meta dataframe.
+        Returns:
+            pd.DataFrame: sorted series meta dataframe.
+        """
+        pid = df_study['patient_id'][0]
+        df_study['n_slices'] = 0
+        for i in range(len(df_study)):
+            sid = df_study['series_id'][i]
+            series_path = os.path.join(self.CFG_INF.image_dir, str(pid), str(sid))
+            if os.path.exists(series_path):
+                df_study['n_slices'][i] = len(os.listdir(series_path))
+        df_study = df_study.sort_values(by='n_slices', ascending=False)
+        return df_study
 
     def lsk_prediction(self, data: np.ndarray) -> np.ndarray:
         """liver, spleen, kidneyの予測値を返す.
@@ -201,37 +219,58 @@ class Inference:
         pred = self.be_prediction_postprocess(pred)
         return pred
 
-    def be_prediction_postprocess(self, pred: np.ndarray) -> np.ndarray:
+    def be_prediction_postprocess(self, pred: np.ndarray, p: int=98) -> np.ndarray:
         """スライスごとの予測をシリーズの予測に変換する.
         Args:
             pred: (len(data),['bowel_injury', 'extravasation_injury']).
+            p: percentile.
         Returns:
             np.ndarray: ['bowel_injury', 'extravasation_injury'].
         Note:
-            - 予測値の最大値から外れ値を考慮した2%percentileを採用する.
+            - 予測値の最大値から外れ値を考慮したp percentileを採用する.
         """
         bowel = pred[:, 0]
         extravasation = pred[:, 1]
-        bowel = np.percentile(bowel, 98)
-        extravasation = np.percentile(extravasation, 98)
+        bowel = np.percentile(bowel, p)
+        extravasation = np.percentile(extravasation, p)
         return np.array([bowel, extravasation])
 
-    def pseudo_iterator(self, CFG: Any, images: np.ndarray) -> tuple:
+    def pseudo_iterator(self, CFG: Any, images: np.ndarray)-> tuple:
         """evaluation iterator.
         Args:
             CFG: config.
             images: (batch dim, H, W) or (batch dim, Z, H, W).
         """
         batch = CFG.batch_size
-        for i in range(0, len(images), batch):
-            arr = images[i : i + batch]
-            arr = self.add_ch_dim(arr)
-            arr = torch.from_numpy(arr.astype(arr.dtype, copy=False))
-            yield arr
+        length = len(images)
+        arr = []
+        if not CFG.expand_ch_dim:
+            images = self.add_dummy_array(CFG, images)
+        for i in range(length):
+            if CFG.expand_ch_dim:
+                img = images[i]
+                img = img[np.newaxis, ...]
+            else:
+                img = images[i:i+CFG.n_ch]
+            arr.append(img)
+            if i != 0 and (i%batch==0 or i == length-1):
+                arr = np.stack(arr, axis=0)
+                arr = torch.from_numpy(arr.astype(arr.dtype, copy=False))
+                yield arr
+                arr = []
 
-    def add_ch_dim(self, images: np.ndarray) -> np.ndarray:
-        """1次元目にchannel dimを追加する."""
-        return images[:, np.newaxis, ...]
+    def add_dummy_array(self, CFG: Any, images: np.ndarray)-> np.ndarray:
+        """chが複数ある場合に、事前に0配列を追加しておく."""
+        add_ch = CFG.n_ch//2
+        arr = []
+        img = np.zeros_like(images[0])
+        for i in range(add_ch):
+            arr.append(img)
+        arr.extend(images)
+        for i in range(add_ch):
+            arr.append(img)
+        arr = np.stack(arr, axis=0)
+        return arr
 
     def convert_submission_format(self, pred: dict) -> dict:
         """提出形式に変換する."""

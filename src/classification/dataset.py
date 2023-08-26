@@ -363,7 +363,10 @@ class TrainDatasetBowelExtra(Dataset):
         return image, label
 
     def get_label(self, idx: int) -> torch.tensor:
-        label = [self.df["bowel"][idx], self.df["extravasation"][idx]]
+        if self.CFG.n_class == 1: #この場合、extravasationのみのモデルを作ろうとしている
+            label = [self.df["extravasation"][idx]]
+        else:
+            label = [self.df["bowel"][idx], self.df["extravasation"][idx]]
         if self.CFG.label_smoothing:
             label = np.clip(label, 0.05, 0.95)
         return torch.tensor(label, dtype=torch.float32)
