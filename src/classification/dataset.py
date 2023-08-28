@@ -43,19 +43,19 @@ def resize_1d(image: np.ndarray, imsize: int, axis: int = 2) -> np.ndarray:
     # 元の軸の順序に戻す
     result = np.moveaxis(result_moved, -1, axis)
 
-    return result
+    return result.astype(np.float32)
 
 
 def resize(image: np.ndarray, imsize: Tuple[int, int, int]) -> np.ndarray:
     """ボリュームデータのリサイズ.
     Args:
         image (numpy.ndarray): volume(h, w, z).
-        imsize (tuple): リサイズ後の画像サイズ.
+        imsize (tuple): リサイズ後の画像サイズ.但し、こちらは(z, h, w)の順.
     Returns:
         numpy.ndarray: resized volume.
     """
-    image = cv2.resize(image, imsize[:2], interpolation=cv2.INTER_LINEAR)
-    image = resize_1d(image, imsize[2], axis=2)
+    image = cv2.resize(image, (imsize[2], imsize[1]), interpolation=cv2.INTER_LINEAR)
+    image = resize_1d(image, imsize[0], axis=2)
     return image
 
 
@@ -120,9 +120,7 @@ class TrainDatasetSolidOrgans(Dataset):
 
         if self.preprocess:
             image = self.preprocess(image)
-
         image = resize(image, self.CFG.image_size)
-
         if self.tfms:
             res = self.tfms(image=image)
             image = res["image"]
@@ -363,10 +361,20 @@ class TrainDatasetBowelExtra(Dataset):
         return image, label
 
     def get_label(self, idx: int) -> torch.tensor:
-        if self.CFG.n_class == 1: #この場合、extravasationのみのモデルを作ろうとしている
+        if self.CFG.n_class == 1: 
+            #この場合、extravasationのみのモデルを作ろうとしている
             label = [self.df["extravasation"][idx]]
-        else:
+        elif self.CFG.n_class == 2:
+            # 通常のラベル
             label = [self.df["bowel"][idx], self.df["extravasation"][idx]]
+        elif self.CFG.n_class == 4:
+            # one hot (sample weighted)
+            label = [
+                1 - self.df["bowel"][idx], # bowel healthy
+                self.df["bowel"][idx], # bowel injury
+                1- self.df["extravasation"][idx], # extravasation healthy
+                self.df["extravasation"][idx] # extravasation injury
+            ]
         if self.CFG.label_smoothing:
             label = np.clip(label, 0.05, 0.95)
         return torch.tensor(label, dtype=torch.float32)
