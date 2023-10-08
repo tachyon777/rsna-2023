@@ -8,6 +8,8 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
+from src.image_processing import crop_image_from_bbox
+from src.data_augmentation import custom_3d_aug
 
 def load_image(path: str) -> np.ndarray:
     """画像の読み込み.
@@ -55,6 +57,8 @@ def resize(image: np.ndarray, imsize: Tuple[int, int, int]) -> np.ndarray:
         numpy.ndarray: resized volume.
     """
     image = cv2.resize(image, (imsize[2], imsize[1]), interpolation=cv2.INTER_LINEAR)
+    # image = resize_1d(image, imsize[1], axis=0)
+    # image = resize_1d(image, imsize[2], axis=1)
     image = resize_1d(image, imsize[0], axis=2)
     return image
 
@@ -65,14 +69,6 @@ def img2tensor(img, dtype: np.dtype = np.float32):
         img = np.expand_dims(img, 2)
     img = np.transpose(img, (2, 0, 1))
     return torch.from_numpy(img.astype(dtype, copy=False))
-
-
-def get_label(df: pd.DataFrame, idx: int) -> torch.tensor:
-    """ラベルを取得する.healthy, low, highの順"""
-    label = []
-    for i in ["healthy", "low", "high"]:
-        label.append(df[i][idx])
-    return torch.tensor(label, dtype=torch.float32)
 
 
 class TrainDatasetSolidOrgans(Dataset):
@@ -117,7 +113,6 @@ class TrainDatasetSolidOrgans(Dataset):
 
         # dataset002のボリュームデータは(z, h, w)
         image = image.transpose(1, 2, 0)
-
         if self.preprocess:
             image = self.preprocess(image)
         image = resize(image, self.CFG.image_size)
@@ -137,7 +132,7 @@ class TrainDatasetSolidOrgans(Dataset):
             # (h, w, z) -> (z, h, w)
             image = img2tensor(image)
 
-        label = get_label(self.df, idx)
+        label = self.get_label(idx)
 
         return image, label
 
@@ -182,8 +177,20 @@ class TrainDatasetSolidOrgans(Dataset):
             image = torch.from_numpy(image.astype(np.float32, copy=False))
         else:
             image = img2tensor(image)
-        label = get_label(self.df, idx)
+        label = self.get_label(idx)
         return image, label
+
+    def get_label(self, idx: int) -> torch.tensor:
+        """ラベルを取得する.healthy, low, highの順"""
+        label = []
+        for i in ["healthy", "low", "high"]:
+            label.append(self.df[i][idx])
+        if self.CFG.n_class == 4:
+            if self.df["healthy"][idx] == 0:
+                label.append(self.df["extravasation"][idx])
+            else:
+                label.append(0)
+        return torch.tensor(label, dtype=torch.float32)
 
 
 class TestDatasetSolidOrgans(Dataset):
@@ -248,7 +255,7 @@ class TestDatasetSolidOrgans(Dataset):
             # (h, w, z) -> (z, h, w)
             image = img2tensor(image)
 
-        label = get_label(self.df, idx)
+        label = self.get_label(idx)
 
         return image, label
 
@@ -293,8 +300,18 @@ class TestDatasetSolidOrgans(Dataset):
             image = torch.from_numpy(image.astype(np.float32, copy=False))
         else:
             image = img2tensor(image)
-        label = get_label(self.df, idx)
+        label = self.get_label(idx)
         return image, label
+    
+    def get_label(self, idx: int) -> torch.tensor:
+        """ラベルを取得する.healthy, low, highの順"""
+        label = []
+        for i in ["healthy", "low", "high"]:
+            label.append(self.df[i][idx])
+        if self.CFG.n_class == 4:
+            for i in ["extravasation"]:
+                label.append(self.df[i][idx])
+        return torch.tensor(label, dtype=torch.float32)
 
 
 class TrainDatasetBowelExtra(Dataset):
@@ -325,32 +342,52 @@ class TrainDatasetBowelExtra(Dataset):
             現在読み込む画像の形式は.png, .npy, .npzのみ対応.
         """
         arr = []
+        # 画像が存在しなかった場合のテンプレート用に、先にidxの画像は読み込んでおく.
+        impath = os.path.join(
+            self.CFG.image_dir,
+            "train_images",
+            str(self.df["patient_id"][idx]),
+            str(self.df["series_id"][idx]),
+            str(int(self.df["image_id"][idx])) + ".npy",
+        )
+        image_0 = load_image(impath)
         for ch in range(-(self.CFG.n_ch//2), self.CFG.n_ch//2+1):
-            impath = os.path.join(
-                self.CFG.image_dir,
-                "train_images",
-                str(self.df["patient_id"][idx]),
-                str(self.df["series_id"][idx]),
-                str(int(self.df["image_id"][idx] + ch)) + ".npy",
-            )
-            if os.path.exists(impath):
-                image = load_image(impath)
+            if ch != 0:
+                impath = os.path.join(
+                    self.CFG.image_dir,
+                    "train_images",
+                    str(self.df["patient_id"][idx]),
+                    str(self.df["series_id"][idx]),
+                    str(int(self.df["image_id"][idx] + ch)) + ".npy",
+                )
+                if os.path.exists(impath):
+                    image = load_image(impath)
+                else:
+                    image = np.zeros_like(image_0)
+                arr.append(image)
             else:
-                image = np.zeros(self.CFG.image_size)
-            image = cv2.resize(
-                image,
-                (self.CFG.image_size[1], self.CFG.image_size[0]),
-                interpolation=cv2.INTER_LINEAR,
-            )
-            arr.append(image)
+                arr.append(image_0)
         
         # (ch, h, w)の配列を作成
         image = np.stack(arr, axis=0)
         image = image.transpose(1, 2, 0) #ch last
 
+        if self.CFG.crop_body:
+            bbox = []
+            for i in ["x_min", "y_min", "w", "h"]:
+                bbox.append(self.df[i][idx])
+        if sum(bbox) != 0:
+            image = crop_image_from_bbox(image, bbox)
+
+        image = cv2.resize(
+            image,
+            (self.CFG.image_size[1], self.CFG.image_size[0]),
+            interpolation=cv2.INTER_LINEAR,
+        )
+
         if self.preprocess:
             image = self.preprocess(image)
-            
+
         if self.tfms:
             res = self.tfms(image=image)
             image = res["image"]

@@ -99,7 +99,11 @@ def find_body_contour(img_bin: np.ndarray) -> list:
 
 
 def apply_preprocess(
-    image: np.ndarray, resize: Optional[tuple] = None
+    image: np.ndarray, 
+    resize: Optional[tuple] = None, 
+    do_windowing: bool = True,
+    wl: int = 0, 
+    ww: int = 400
 ) -> Tuple[np.ndarray, np.ndarray]:
     """データ前処理. カスタマイズして使用.
     Args:
@@ -107,9 +111,12 @@ def apply_preprocess(
         resize (tuple): リサイズ後の画像サイズ. Noneならばリサイズしない. (h, w)
     Returns:
         image (numpy.ndarray): windowing及び0~1に正規化. (z, h, w)
+    Note:
+        - 過去のコードの仕様上、resizeはデフォルトがfalseで、windowingはデフォルトがtrueとなっており、注意が必要.
     """
     # 0~1に正規化
-    image = windowing(image, wl=0, ww=400, mode="float32")
+    if do_windowing:
+        image = windowing(image, wl=wl, ww=ww, mode="float32")
     if resize:
         new_arr = []
         for i in range(image.shape[0]):
@@ -305,3 +312,16 @@ def kidney_specific(CFG, l: np.ndarray, r: np.ndarray) -> np.ndarray:
     image = np.concatenate([l, r], axis=2)
     image = resize_1d(image, CFG.image_size[2], axis=2)
     return image
+
+def crop_image_from_bbox(image: np.ndarray, bbox: tuple[int, int, int, int], ch_first:bool = False)-> np.ndarray:
+    """bboxを元に画像を切り出す.
+    Args:
+        image (np.ndarray): (H, W)の画像
+        bbox (tuple[int, int, int, int]): bbox
+    Returns:
+        np.ndarray: 切り出した画像
+    """
+    x_min, y_min, w, h = bbox
+    if ch_first:
+        return image[:, y_min:y_min+h, x_min:x_min+w]
+    return image[y_min:y_min+h, x_min:x_min+w]
