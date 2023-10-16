@@ -351,6 +351,7 @@ class TrainDatasetBowelExtra(Dataset):
             str(int(self.df["image_id"][idx])) + ".npy",
         )
         image_0 = load_image(impath)
+        label = self.get_label(idx)
         for ch in range(-(self.CFG.n_ch//2), self.CFG.n_ch//2+1):
             if ch != 0:
                 impath = os.path.join(
@@ -376,8 +377,8 @@ class TrainDatasetBowelExtra(Dataset):
             bbox = []
             for i in ["x_min", "y_min", "w", "h"]:
                 bbox.append(self.df[i][idx])
-        if sum(bbox) != 0:
-            image = crop_image_from_bbox(image, bbox)
+            if sum(bbox) != 0:
+                image = crop_image_from_bbox(image, bbox)
 
         image = cv2.resize(
             image,
@@ -393,7 +394,6 @@ class TrainDatasetBowelExtra(Dataset):
             image = res["image"]
 
         image = img2tensor(image)
-        label = self.get_label(idx)
 
         return image, label
 
@@ -412,8 +412,38 @@ class TrainDatasetBowelExtra(Dataset):
                 1- self.df["extravasation"][idx], # extravasation healthy
                 self.df["extravasation"][idx] # extravasation injury
             ]
+        elif self.CFG.n_class == 6: # exp075系
+            organ_index_dict_inv = {
+                0: "liver_low",
+                1: "liver_high",
+                2: "spleen_low",
+                3: "spleen_high",
+                4: "kidney_low",
+                5: "kidney_high",
+            }
+            label = []
+            for k,v in organ_index_dict_inv.items():
+                label.append(self.df[v][idx])
+        elif self.CFG.n_class == 11: # exp063系
+            label = []
+            organ_index_dict_inv = {
+                0: "extravasation",
+                1: "bowel",
+                2: "liver_healthy",
+                3: "liver_low",
+                4: "liver_high",
+                5: "spleen_healthy",
+                6: "spleen_low",
+                7: "spleen_high",
+                8: "kidney_healthy",
+                9: "kidney_low",
+                10: "kidney_high",
+            }
+            for k,v in organ_index_dict_inv.items():
+                label.append(self.df[v][idx])
+
         if self.CFG.label_smoothing:
-            label = np.clip(label, 0.05, 0.95)
+            label = np.clip(label, self.CFG.label_smoothing, 1 - self.CFG.label_smoothing)
         return torch.tensor(label, dtype=torch.float32)
 
 

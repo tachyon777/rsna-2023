@@ -8,6 +8,7 @@ import torch.cuda.amp as amp
 from tqdm import tqdm
 
 from src.metrics import logloss
+from sklearn.metrics import roc_auc_score
 
 
 def train(CFG, model, iterator, optimizer, criterion, scaler) -> float:
@@ -57,7 +58,7 @@ def train(CFG, model, iterator, optimizer, criterion, scaler) -> float:
     return epoch_loss / len(iterator)
 
 
-def validate(CFG, model, iterator, criterion) -> tuple:
+def validate(CFG, model, iterator, criterion, calc_auc=False) -> tuple:
     epoch_loss = 0
     y_pred_list = []
     y_list = []
@@ -90,9 +91,23 @@ def validate(CFG, model, iterator, criterion) -> tuple:
     y_pred_list = torch.cat(y_pred_list, dim=0)
     y_list = torch.cat(y_list, dim=0)
     val_metric = logloss(y_pred_list, y_list)
-    metric_mean = val_metric.mean()
 
-    return epoch_loss / len(iterator), metric_mean
+    metric_mean = val_metric.mean()
+    if calc_auc: # y_list shape: (num_data, num_classes)
+        val_auc = []
+        for c in range(y_list.shape[1]):
+            y_pred_list_c = y_pred_list[:, c]
+            y_list_c = y_list[:, c]
+            if y_list_c.unique().shape[0] == 1:
+                val_auc.append(0.5)
+            else:
+                if type(y_list_c) == torch.Tensor:
+                    y_list_c = y_list_c.cpu().numpy()
+                y_list_c = (y_list_c > 0.5).astype(np.float32)
+                val_auc.append(roc_auc_score(y_list_c, y_pred_list_c))
+        return epoch_loss / len(iterator), metric_mean, val_auc
+    else:
+        return epoch_loss / len(iterator), val_metric
 
 
 def fit_model(
@@ -109,6 +124,8 @@ def fit_model(
     logger,
     scheduler,
     organ_index_dict_inv,
+    calc_auc = False,
+    save_whole_epoch = False,
 ) -> tuple:
     """Fits a dataset to model"""
     best_valid_score = 10 ** 9
@@ -132,7 +149,12 @@ def fit_model(
         train_loss = train(
             CFG, model, train_iterator, optimizer, loss_criterion, scaler
         )
-        valid_loss, valid_metric = validate(CFG, model, valid_iterator, loss_criterion)
+        if calc_auc:
+            valid_loss, valid_metric, valid_auc = validate(CFG, model, valid_iterator, loss_criterion, True)
+        else:
+            valid_loss, valid_metric = validate(CFG, model, valid_iterator, loss_criterion)
+            valid_auc = None
+
 
         train_losses.append(train_loss)
         valid_losses.append(valid_loss)
@@ -151,6 +173,17 @@ def fit_model(
                     model.module.state_dict(),
                     os.path.join(CFG.model_save_dir, CFG.exp_name, f"{name}_best.pth"),
                 )
+        if save_whole_epoch:
+            if CFG.num_gpus == 1:
+                torch.save(
+                    model.state_dict(),
+                    os.path.join(CFG.model_save_dir, CFG.exp_name, f"{name}_e{epoch}.pth"),
+                )
+            else:
+                torch.save(
+                    model.module.state_dict(),
+                    os.path.join(CFG.model_save_dir, CFG.exp_name, f"{name}_e{epoch}.pth"),
+                )
 
         end_time = time.time()
 
@@ -166,6 +199,9 @@ def fit_model(
         logger.info(
             f"Val. Loss: {valid_loss:.3f} | Val. Logloss Score : {valid_metric:.3f},"
         )
+        if calc_auc:
+            for k, v in organ_index_dict_inv.items():
+                logger.info(f"Val. AUC Score {v}: {valid_auc[k]:.3f}")
 
     if not freeze:
         if CFG.num_gpus == 1:

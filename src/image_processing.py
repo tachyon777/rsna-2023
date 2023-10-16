@@ -313,6 +313,26 @@ def kidney_specific(CFG, l: np.ndarray, r: np.ndarray) -> np.ndarray:
     image = resize_1d(image, CFG.image_size[2], axis=2)
     return image
 
+def create_bbox(mask: np.ndarray)->tuple[int, int, int, int]:
+    """バイナリ画像からbboxを作成する.
+    座標はcoco formatに合わせて、(x_min, y_min, w, h)とする.
+    Args:
+        mask (np.ndarray): (H, W)のバイナリ画像
+    Returns:
+        tuple(int, int, int, int): bbox
+    """
+    if mask.sum() == 0:
+        return 0, 0, 0, 0
+    # x_min
+    x_min = np.where(np.any(mask, axis=0))[0].min()
+    # x_max
+    x_max = np.where(np.any(mask, axis=0))[0].max()
+    # y_min
+    y_min = np.where(np.any(mask, axis=1))[0].min()
+    # y_max
+    y_max = np.where(np.any(mask, axis=1))[0].max()
+    return x_min, y_min, x_max-x_min, y_max-y_min
+
 def crop_image_from_bbox(image: np.ndarray, bbox: tuple[int, int, int, int], ch_first:bool = False)-> np.ndarray:
     """bboxを元に画像を切り出す.
     Args:

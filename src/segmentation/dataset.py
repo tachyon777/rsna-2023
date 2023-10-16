@@ -100,6 +100,53 @@ class TrainDataset(Dataset):
 
         return img2tensor(image), img2tensor(mask)
 
+class TrainDataset(Dataset):
+    """学習用データセット."""
+
+    def __init__(
+        self,
+        CFG: Any,
+        df: pd.DataFrame,
+        preprocess: Union[None, Callable] = None,
+        tfms: Union[None, Callable] = None,
+    ) -> None:
+        self.df = df
+        self.CFG = CFG
+        self.preprocess = preprocess
+        self.tfms = tfms
+
+    def __len__(self) -> int:
+        return len(self.df)
+
+    def __getitem__(self, idx: int) -> tuple:
+        """画像とラベル(mask)の取得.
+        Args:
+            idx (int): self.dfに対応するデータのインデックス.
+        Returns:
+            tuple (torch.tensor, torch.tensor): 画像とラベル(mask).
+        Note:
+            現在読み込む画像の形式は.png, .npy, .npzのみ対応.
+        """
+        impath = self.df["image_path"][idx]
+        maskpath = self.df["mask_path"][idx]
+
+        image = load_image(impath)
+        if maskpath is not None:
+            mask = load_image(maskpath)
+        else:
+            mask = np.zeros((image.shape + (self.CFG.n_class,)))
+
+        if self.preprocess:
+            image, mask = self.preprocess(image, mask)
+
+        image = resize(image, self.CFG.image_size)
+        mask = resize(mask, self.CFG.image_size)
+
+        if self.tfms:
+            res = self.tfms(image=image, mask=mask)
+            image, mask = res["image"], res["mask"]
+
+        return img2tensor(image), img2tensor(mask)
 
 class TestDataset(Dataset):
     """テスト用データセット.

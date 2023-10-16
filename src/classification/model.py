@@ -66,7 +66,6 @@ def load_models(
     CFG: Any, mode: str = "final", framework: str = "EfficientNet3D"
 ) -> list:
     """Configの内容から、学習済みの全モデルを読み込む."""
-    assert mode in ["final", "best"]
     assert framework in ["EfficientNet3D", "timm"]
     models = []
     for fold in range(CFG.train_folds):
