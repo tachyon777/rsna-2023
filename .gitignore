@@ -15,6 +15,7 @@ __pycache__
 !data/README.md
 !models/README.md
 !outputs/README.md
+exp035.py
 
 # IntelliJ IDEAを使う場合
 # 公式参考: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839-How-to-manage-projects-under-Version-Control-Systems
